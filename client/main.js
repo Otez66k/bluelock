@@ -2,6 +2,7 @@
 // Completely replaces previous 3D code
 import { io } from "socket.io-client";
 import './style.css';
+import { DiscordSDK } from "@discord/embedded-app-sdk";
 
 // Use Discord proxy for socket.io if running inside Discord Activity
 let socketUrl;
@@ -237,37 +238,17 @@ function startLobbyFlow() {
 console.log('[DEBUG] Hostname:', window.location.hostname);
 console.log('[DEBUG] DiscordSDK:', window.DiscordSDK);
 
-function joinLobbyWithInstanceId() {
-  let instanceId;
-  if (window.DiscordSDK && window.DiscordSDK.prototype && typeof window.DiscordSDK === 'function') {
-    const CLIENT_ID = window.CLIENT_ID || undefined;
-    const discordSdk = new window.DiscordSDK(CLIENT_ID);
-    instanceId = discordSdk.instanceId;
-    console.log('[DEBUG] [DiscordSDK] instanceId:', instanceId, 'CLIENT_ID:', CLIENT_ID, 'discordSdk:', discordSdk);
-  } else {
-    instanceId = "local-instance";
-    console.log('[DEBUG] [Local/Dev] instanceId:', instanceId);
-  }
-  socket.emit("join_instance", instanceId);
-  console.log('[DEBUG] Emitted join_instance with instanceId:', instanceId);
+let instanceId;
+if (window.location.hostname.endsWith("discordsays.com")) {
+  const CLIENT_ID = window.CLIENT_ID || "<YOUR_DISCORD_CLIENT_ID>";
+  const discordSdk = new DiscordSDK(CLIENT_ID);
+  instanceId = discordSdk.instanceId;
+  console.log("[DiscordSDK] instanceId:", instanceId);
+} else {
+  instanceId = "local-instance";
+  console.log("[Local/Dev] instanceId:", instanceId);
 }
-
-let discordSdkWaitTries = 0;
-function waitForDiscordSDKAndJoin() {
-  if (window.location.hostname.endsWith("discordsays.com") && !window.DiscordSDK) {
-    discordSdkWaitTries++;
-    if (discordSdkWaitTries > 100) { // ~5 seconds at 50ms intervals
-      console.log('[DEBUG] DiscordSDK not found after waiting, falling back to "activity-global" instanceId');
-      socket.emit("join_instance", "activity-global");
-      return;
-    }
-    console.log('[DEBUG] Waiting for DiscordSDK to load...');
-    setTimeout(waitForDiscordSDKAndJoin, 50);
-  } else {
-    joinLobbyWithInstanceId();
-  }
-}
-waitForDiscordSDKAndJoin();
+socket.emit("join_instance", instanceId);
 
 // Debug Socket.IO events
 socket.on("connect", () => {
