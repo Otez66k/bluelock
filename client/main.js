@@ -3,7 +3,16 @@
 import { io } from "socket.io-client";
 import './style.css';
 
-const socket = io();
+// Use Discord proxy for socket.io if running inside Discord Activity
+let socketUrl;
+if (window.location.hostname.endsWith("discordsays.com")) {
+  socketUrl = window.location.origin + "/.proxy/";
+  console.log("[Socket.IO] Using Discord proxy:", socketUrl);
+} else {
+  socketUrl = undefined;
+  console.log("[Socket.IO] Using default (same-origin) connection");
+}
+const socket = io(socketUrl);
 
 // Game constants
 const GOAL_SCORE = 5;
