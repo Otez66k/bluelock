@@ -16,7 +16,8 @@ export default defineConfig({
       port: 5173,
     },
     allowedHosts: [
-      'beta-convenient-actors-jim.trycloudflare.com'
+      'https://bluelock-0xwg.onrender.com',
+      'https://1396595218211668049.discordsays.com'
     ],
   },
 });
