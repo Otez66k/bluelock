@@ -230,19 +230,31 @@ function startLobbyFlow() {
   socket.emit("request_lobby_state"); // or whatever triggers the lobby state fetch
 }
 
-let instanceId;
-if (window.DiscordSDK && window.DiscordSDK.prototype && typeof window.DiscordSDK === 'function') {
-  // Use Discord Activity instanceId if available
-  const CLIENT_ID = window.CLIENT_ID || undefined; // Use your actual client ID if needed
-  const discordSdk = new window.DiscordSDK(CLIENT_ID);
-  instanceId = discordSdk.instanceId;
-  console.log("[DiscordSDK] Joining instanceId:", instanceId);
-} else {
-  // Fallback for local/dev: use a constant
-  instanceId = "local-instance";
-  console.log("[Local/Dev] Joining instanceId:", instanceId);
+// --- Socket.IO connection setup (already handled above) ---
+
+// --- InstanceId logic for Discord Activity and local/dev ---
+function joinLobbyWithInstanceId() {
+  let instanceId;
+  if (window.DiscordSDK && window.DiscordSDK.prototype && typeof window.DiscordSDK === 'function') {
+    const CLIENT_ID = window.CLIENT_ID || undefined;
+    const discordSdk = new window.DiscordSDK(CLIENT_ID);
+    instanceId = discordSdk.instanceId;
+    console.log("[DiscordSDK] Joining instanceId:", instanceId);
+  } else {
+    instanceId = "local-instance";
+    console.log("[Local/Dev] Joining instanceId:", instanceId);
+  }
+  socket.emit("join_instance", instanceId);
 }
-socket.emit("join_instance", instanceId);
+
+function waitForDiscordSDKAndJoin() {
+  if (window.location.hostname.endsWith("discordsays.com") && !window.DiscordSDK) {
+    setTimeout(waitForDiscordSDKAndJoin, 50);
+  } else {
+    joinLobbyWithInstanceId();
+  }
+}
+waitForDiscordSDKAndJoin();
 
 // Only call renderLobby when lobby is set:
 socket.on("lobby_state", state => {
