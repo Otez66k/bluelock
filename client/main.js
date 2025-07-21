@@ -233,31 +233,45 @@ function startLobbyFlow() {
 // --- Socket.IO connection setup (already handled above) ---
 
 // --- InstanceId logic for Discord Activity and local/dev ---
+// --- Enhanced Debug Statements ---
+console.log('[DEBUG] Hostname:', window.location.hostname);
+console.log('[DEBUG] DiscordSDK:', window.DiscordSDK);
+
 function joinLobbyWithInstanceId() {
   let instanceId;
   if (window.DiscordSDK && window.DiscordSDK.prototype && typeof window.DiscordSDK === 'function') {
     const CLIENT_ID = window.CLIENT_ID || undefined;
     const discordSdk = new window.DiscordSDK(CLIENT_ID);
     instanceId = discordSdk.instanceId;
-    console.log("[DiscordSDK] Joining instanceId:", instanceId);
+    console.log('[DEBUG] [DiscordSDK] instanceId:', instanceId, 'CLIENT_ID:', CLIENT_ID, 'discordSdk:', discordSdk);
   } else {
     instanceId = "local-instance";
-    console.log("[Local/Dev] Joining instanceId:", instanceId);
+    console.log('[DEBUG] [Local/Dev] instanceId:', instanceId);
   }
   socket.emit("join_instance", instanceId);
+  console.log('[DEBUG] Emitted join_instance with instanceId:', instanceId);
 }
 
 function waitForDiscordSDKAndJoin() {
   if (window.location.hostname.endsWith("discordsays.com") && !window.DiscordSDK) {
+    console.log('[DEBUG] Waiting for DiscordSDK to load...');
     setTimeout(waitForDiscordSDKAndJoin, 50);
   } else {
+    console.log('[DEBUG] DiscordSDK loaded or not required, proceeding to join lobby.');
     joinLobbyWithInstanceId();
   }
 }
 waitForDiscordSDKAndJoin();
 
-// Only call renderLobby when lobby is set:
+// Debug Socket.IO events
+socket.on("connect", () => {
+  console.log('[DEBUG] Socket.IO connected:', socket.id);
+});
+socket.on("disconnect", () => {
+  console.log('[DEBUG] Socket.IO disconnected');
+});
 socket.on("lobby_state", state => {
+  console.log('[DEBUG] Received lobby_state:', state);
   lobby = state;
   if (lobby.started) {
     startGameWithTeams();
@@ -265,8 +279,8 @@ socket.on("lobby_state", state => {
     renderLobby();
   }
 });
-
 socket.on("game_started", () => {
+  console.log('[DEBUG] Received game_started');
   startGameWithTeams();
 });
 
