@@ -252,12 +252,18 @@ function joinLobbyWithInstanceId() {
   console.log('[DEBUG] Emitted join_instance with instanceId:', instanceId);
 }
 
+let discordSdkWaitTries = 0;
 function waitForDiscordSDKAndJoin() {
   if (window.location.hostname.endsWith("discordsays.com") && !window.DiscordSDK) {
+    discordSdkWaitTries++;
+    if (discordSdkWaitTries > 100) { // ~5 seconds at 50ms intervals
+      console.log('[DEBUG] DiscordSDK not found after waiting, falling back to "activity-global" instanceId');
+      socket.emit("join_instance", "activity-global");
+      return;
+    }
     console.log('[DEBUG] Waiting for DiscordSDK to load...');
     setTimeout(waitForDiscordSDKAndJoin, 50);
   } else {
-    console.log('[DEBUG] DiscordSDK loaded or not required, proceeding to join lobby.');
     joinLobbyWithInstanceId();
   }
 }
