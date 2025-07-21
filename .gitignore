@@ -1,0 +1,9 @@
+node_modules/
+client/dist/
+*.log
+.DS_Store
+*.dll
+*.so
+*.dylib
+*.aar
+*.lib
