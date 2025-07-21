@@ -221,41 +221,19 @@ function startLobbyFlow() {
   socket.emit("request_lobby_state"); // or whatever triggers the lobby state fetch
 }
 
-let instanceId = null;
-let discordSdk = null;
-
-function waitForDiscordSDKAndStart() {
-  if (window.DiscordSDK) {
-    setupDiscordUserAndStart();
-  } else {
-    setTimeout(waitForDiscordSDKAndStart, 50);
-  }
+let instanceId;
+if (window.DiscordSDK && window.DiscordSDK.prototype && typeof window.DiscordSDK === 'function') {
+  // Use Discord Activity instanceId if available
+  const CLIENT_ID = window.CLIENT_ID || undefined; // Use your actual client ID if needed
+  const discordSdk = new window.DiscordSDK(CLIENT_ID);
+  instanceId = discordSdk.instanceId;
+  console.log("[DiscordSDK] Joining instanceId:", instanceId);
+} else {
+  // Fallback for local/dev: use a constant
+  instanceId = "local-instance";
+  console.log("[Local/Dev] Joining instanceId:", instanceId);
 }
-
-waitForDiscordSDKAndStart();
-
-async function setupDiscordUserAndStart() {
-  if (window.DiscordSDK) {
-    discordSdk = new window.DiscordSDK(CLIENT_ID); // CLIENT_ID should be set appropriately
-    instanceId = discordSdk.instanceId;
-    console.log("DiscordSDK detected! instanceId:", instanceId);
-    socket.emit("join_instance", instanceId);
-    // Optionally, authenticate and get user info here
-    // ...
-    // Do NOT call renderLobby here
-  } else {
-    // Fallback for local dev or if SDK not loaded
-    instanceId = "local-instance";
-    console.log("DiscordSDK NOT detected, using local-instance");
-    socket.emit("join_instance", instanceId);
-    window.discordUser = null;
-    // Do NOT call renderLobby here
-  }
-  document.body.innerHTML = '<div class="lobby-loading">Loading lobby...</div>';
-}
-
-// Always start with Discord user setup and then the lobby
-// setupDiscordUserAndStart(); // This line is now handled by waitForDiscordSDKAndStart
+socket.emit("join_instance", instanceId);
 
 // Only call renderLobby when lobby is set:
 socket.on("lobby_state", state => {
