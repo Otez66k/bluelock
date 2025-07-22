@@ -1,25 +1,7 @@
 // 2D Soccer Game (Top-Down)
 // Completely replaces previous 3D code
-import { io } from "socket.io-client";
 import './style.css';
 import { DiscordSDK } from "@discord/embedded-app-sdk";
-import { DiscordProxy } from '@robojs/patch';
-DiscordProxy.patch();
-
-// Use Discord proxy for socket.io if running inside Discord Activity
-let socketUrl;
-if (window.location.hostname.endsWith("discordsays.com")) {
-  socketUrl = window.location.origin + "/.proxy/";
-  console.log("[Socket.IO] Using Discord proxy:", socketUrl);
-} else {
-  socketUrl = undefined;
-  console.log("[Socket.IO] Using default (same-origin) connection");
-}
-let socketOptions = {};
-if (window.location.hostname.endsWith("discordsays.com")) {
-  socketOptions.transports = ["websocket"];
-}
-const socket = io(socketUrl, socketOptions);
 
 // Game constants
 const GOAL_SCORE = 5;
@@ -167,21 +149,19 @@ function renderLobby() {
     btn.onclick = () => {
       const team = btn.dataset.team;
       const user = getDiscordUser();
-      socket.emit("join_team", { team, name: user.username, avatar: user.avatar, id: user.id });
-      myTeam = team;
+      joinTeam(team, user);
     };
   });
   document.querySelectorAll(".character-circle").forEach(circle => {
     if (!circle.classList.contains('disabled')) {
       circle.onclick = () => {
         const character = circle.dataset.character;
-        socket.emit("select_character", { team: myTeam, character });
-        myCharacter = character;
+        selectCharacter(myTeam, character, socket.id);
       };
     }
   });
   document.getElementById("startBtn").onclick = () => {
-    socket.emit("start_game");
+    startGame();
   };
 }
 
@@ -234,7 +214,7 @@ function startGameWithTeams() {
 
 function startLobbyFlow() {
   // This is your main entry point for the lobby
-  socket.emit("request_lobby_state"); // or whatever triggers the lobby state fetch
+  // socket.emit("request_lobby_state"); // or whatever triggers the lobby state fetch
 }
 
 // --- Socket.IO connection setup (already handled above) ---
