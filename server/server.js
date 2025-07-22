@@ -47,6 +47,7 @@ app.post("/api/token", async (req, res) => {
 const lobbies = {}; // { [instanceId]: { teams: { left: [], right: [] }, ... } }
 
 io.on("connection", (socket) => {
+  console.log(`[SOCKET CONNECTED] id=${socket.id}`);
   let instanceId = null;
   let playerId = socket.id;
 
@@ -61,7 +62,9 @@ io.on("connection", (socket) => {
       };
       console.log(`[LOBBY CREATED] instanceId=${instanceId}`);
     }
+    console.log(`[JOIN_INSTANCE] socket=${socket.id} instanceId=${id}`);
     io.to(instanceId).emit("lobby_state", lobbies[instanceId]);
+    console.log(`[EMIT] lobby_state to instanceId=${instanceId}`, lobbies[instanceId]);
   });
 
   socket.on("request_lobby_state", () => {
