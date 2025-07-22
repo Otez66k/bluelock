@@ -3,6 +3,8 @@
 import { io } from "socket.io-client";
 import './style.css';
 import { DiscordSDK } from "@discord/embedded-app-sdk";
+import { DiscordProxy } from '@robojs/patch';
+DiscordProxy.patch();
 
 // Use Discord proxy for socket.io if running inside Discord Activity
 let socketUrl;
