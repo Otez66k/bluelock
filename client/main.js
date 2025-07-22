@@ -56,6 +56,7 @@ const isDiscord = window.location.hostname.endsWith("discordsays.com");
 const CLIENT_ID = "1396595218211668049";
 const discordSdk = new DiscordSDK(CLIENT_ID);
 let instanceId = "local-instance"; // Will be set after Discord SDK is ready
+let socket = null;
 console.log("[DEBUG] isDiscord:", isDiscord);
 
 let myUserId = null;
@@ -69,6 +70,8 @@ async function authenticateDiscordUser() {
     // Now that SDK is ready, we can safely access instanceId
     instanceId = discordSdk.instanceId;
     console.log("[DiscordSDK] instanceId:", instanceId);
+    // Connect to multiplayer server using Socket.IO
+    connectSocket();
     
     // Use OAuth2 implicit grant or other method to get access token if needed
     // For demo, try to authenticate anonymously
@@ -119,6 +122,24 @@ let localState = {
   started: false,
   selectedTeams: { left: 0, right: 1 },
 };
+
+// --- Socket.IO Setup ---
+function connectSocket() {
+  if (socket) return; // already connected
+  socket = io(); // assumes same origin
+  socket.emit("join_instance", instanceId);
+  socket.on("lobby_state", (state) => {
+    console.log("[SOCKET] lobby_state", state);
+    onLobbyState(state);
+  });
+  socket.on("game_started", () => {
+    console.log("[SOCKET] game_started");
+    lobby.started = true;
+    startGameWithTeams();
+  });
+  // Request current lobby state just in case
+  socket.emit("request_lobby_state");
+}
 
 // --- State Sync Functions ---
 async function setLobbyState(newState) {
@@ -185,13 +206,7 @@ function getDiscordUser() {
 
 function joinTeam(team, user) {
   if (!lobby) return;
-  ["left", "right"].forEach(t => {
-    lobby.teams[t] = lobby.teams[t].filter(p => p.id !== user.id);
-  });
-  if (lobby.teams[team].length < 4) {
-    lobby.teams[team].push({ name: user.username, avatar: user.avatar, id: user.id, character: null });
-  }
-  setLobbyState({ ...lobby });
+  socket.emit("join_team", { team, name: user.username, avatar: user.avatar, id: user.id });
   myTeam = team;
 }
 
@@ -199,14 +214,13 @@ function selectCharacter(team, character, userId) {
   if (!lobby) return;
   let player = lobby.teams[team].find(p => p.id === userId);
   if (player) player.character = character;
-  setLobbyState({ ...lobby });
+  socket.emit("select_character", { team, character, userId });
   myCharacter = character;
 }
 
 function startGame() {
   if (!lobby) return;
-  lobby.started = true;
-  setLobbyState({ ...lobby });
+  socket.emit("start_game");
 }
 
 const TEAM_LIST = [
@@ -347,7 +361,7 @@ function charSelectDropdown(team) {
   return `<div class='char-select-fancy'><span class='char-avatar-placeholder'></span><select class='lobby-char-select'><option value=''>Pick Character</option>${CHARACTERS.filter(c => !taken.includes(c)).map(c => `<option value='${c}'>${c}</option>`).join("")}</select></div>`;
 }
 
-function fancyCharSelect(character, isMe) {
+function fancyCharSelect(character, isMe = false) {
   // Placeholder avatar, will be replaced with real images later
   return `<div class='char-select-fancy'><span class='char-avatar-placeholder'></span><span class='char-name${isMe ? ' me' : ''}'>${character}</span></div>`;
 }
@@ -742,6 +756,7 @@ function updateAI() {
     ai.y = Math.max(PLAYER_SIZE / 2, Math.min(FIELD_HEIGHT - PLAYER_SIZE / 2, ai.y));
     // Tackle: if close to player with ball and left mouse is pressed, steal ball
     if (possession === player && dist < PLAYER_SIZE && mouse.left && !powerShot.charging) {
+      console.log('Tackle! Player steals from AI.');
       possession = ai;
       ball.vx = dx * 4;
       ball.vy = dy * 4;
