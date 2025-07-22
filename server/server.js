@@ -9,7 +9,7 @@ dotenv.config({ path: "../.env" });
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, { cors: { origin: "*" }, path: "/ws/" });
 const port = 3000;
 
 app.use(express.json());

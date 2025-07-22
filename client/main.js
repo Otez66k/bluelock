@@ -17,6 +17,7 @@ let socketOptions = {};
 if (window.location.hostname.endsWith("discordsays.com")) {
   socketOptions.transports = ["polling"];
 }
+socketOptions.path = "/ws/";
 const socket = io(socketUrl, socketOptions);
 
 // Game constants
