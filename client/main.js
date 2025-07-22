@@ -1,7 +1,7 @@
 // 2D Soccer Game (Top-Down)
 // Completely replaces previous 3D code
 import './style.css';
-import { DiscordSDK } from "@discord/embedded-app-sdk";
+import { DiscordSDK, Events } from "@discord/embedded-app-sdk";
 
 // Game constants
 const GOAL_SCORE = 5;
@@ -52,11 +52,120 @@ const CHARACTER_AVATARS = {
   "Seishirou Nagi": "/media/characters/Seishiro_Nagi.png"
 };
 
+const isDiscord = window.location.hostname.endsWith("discordsays.com");
+const CLIENT_ID = "1396595218211668049";
+const discordSdk = new DiscordSDK(CLIENT_ID);
+let instanceId = isDiscord ? discordSdk.instanceId : "local-instance";
+console.log("[DiscordSDK] instanceId:", instanceId);
+
+let myUserId = null;
+let myUsername = null;
+let myAvatar = null;
+
+async function authenticateDiscordUser() {
+  if (isDiscord) {
+    await discordSdk.ready();
+    // Use OAuth2 implicit grant or other method to get access token if needed
+    // For demo, try to authenticate anonymously
+    try {
+      const { user } = await discordSdk.commands.authenticate({});
+      myUserId = user.id;
+      myUsername = user.global_name ?? `${user.username}#${user.discriminator}`;
+      if (user.avatar) {
+        myAvatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`;
+      } else {
+        const defaultAvatarIndex = (BigInt(user.id) >> 22n) % 6n;
+        myAvatar = `https://cdn.discordapp.com/embed/avatars/${defaultAvatarIndex}.png`;
+      }
+    } catch (e) {
+      // Fallback if authentication fails
+      myUserId = Math.random().toString(36).slice(2);
+      myUsername = "Player" + Math.floor(Math.random() * 1000);
+      myAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
+    }
+  } else {
+    myUserId = Math.random().toString(36).slice(2);
+    myUsername = "Player" + Math.floor(Math.random() * 1000);
+    myAvatar = 'https://cdn.discordapp.com/embed/avatars/0.png';
+  }
+}
+
 // Lobby state
 let lobby = null;
 let myTeam = null;
-let myName = "Player" + Math.floor(Math.random() * 1000);
 let myCharacter = null;
+
+// For local dev, use in-memory state
+let localState = {
+  teams: { left: [], right: [] },
+  started: false,
+  selectedTeams: { left: 0, right: 1 },
+};
+
+// --- State Sync Functions ---
+async function setLobbyState(newState) {
+  lobby = newState;
+  if (isDiscord) {
+    await discordSdk.commands.setActivityInstanceState(lobby);
+  } else {
+    localState = { ...newState };
+    onLobbyState(localState);
+  }
+}
+
+function onLobbyState(state) {
+  lobby = state;
+  if (lobby.started) {
+    startGameWithTeams();
+  } else {
+    renderLobby();
+  }
+}
+
+// --- Subscribe to state updates ---
+if (isDiscord) {
+  discordSdk.subscribe('ACTIVITY_INSTANCE_STATE_UPDATE', ({ state }) => {
+    if (state) onLobbyState(state);
+  });
+} else {
+  // For local dev, just use localState
+  onLobbyState(localState);
+}
+
+// --- UI and Lobby Logic ---
+function getDiscordUser() {
+  return {
+    username: myUsername,
+    avatar: myAvatar,
+    id: myUserId
+  };
+}
+
+function joinTeam(team, user) {
+  if (!lobby) return;
+  ["left", "right"].forEach(t => {
+    lobby.teams[t] = lobby.teams[t].filter(p => p.id !== user.id);
+  });
+  if (lobby.teams[team].length < 4) {
+    lobby.teams[team].push({ name: user.username, avatar: user.avatar, id: user.id, character: null });
+  }
+  setLobbyState({ ...lobby });
+  myTeam = team;
+}
+
+function selectCharacter(team, character, userId) {
+  if (!lobby) return;
+  let player = lobby.teams[team].find(p => p.id === userId);
+  if (player) player.character = character;
+  setLobbyState({ ...lobby });
+  myCharacter = character;
+}
+
+function startGame() {
+  if (!lobby) return;
+  lobby.started = true;
+  setLobbyState({ ...lobby });
+}
 
 const TEAM_LIST = [
   { name: "Bastard Munchen", logo: "/media/teams/b_munchen_logo.png" },
@@ -69,16 +178,6 @@ const TEAM_LIST = [
 
 let selectedTeams = null; // { left: teamObj, right: teamObj }
 // Placeholder Discord info (replace with real info from Discord SDK or OAuth)
-function getDiscordUser() {
-  if (window.discordUser && window.discordUser.username && window.discordUser.avatar && window.discordUser.id) {
-    return window.discordUser;
-  }
-  return {
-    username: myName,
-    avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
-    id: socket.id
-  };
-}
 
 // Always show the lobby with two teams, allow changing teams with arrows, and joining either team.
 selectedTeams = { left: TEAM_LIST[0], right: TEAM_LIST[1] };
@@ -156,7 +255,7 @@ function renderLobby() {
     if (!circle.classList.contains('disabled')) {
       circle.onclick = () => {
         const character = circle.dataset.character;
-        selectCharacter(myTeam, character, socket.id);
+        selectCharacter(myTeam, character, myUserId);
       };
     }
   });
@@ -174,7 +273,7 @@ function renderSlots(team) {
         <img src="${slots[i].avatar || 'https://cdn.discordapp.com/embed/avatars/0.png'}" class="player-avatar">
         <div class="player-username">${slots[i].name}</div>
       </div>`;
-    } else if (!lobby.teams.left.concat(lobby.teams.right).find(p => p.id === socket.id)) {
+    } else if (!lobby.teams.left.concat(lobby.teams.right).find(p => p.id === myUserId)) {
       html += `<div class="lobby-slot join" data-team="${team}">+</div>`;
     } else {
       html += `<div class="lobby-slot"></div>`;
@@ -224,40 +323,12 @@ function startLobbyFlow() {
 console.log('[DEBUG] Hostname:', window.location.hostname);
 console.log('[DEBUG] DiscordSDK:', window.DiscordSDK);
 
-let instanceId;
-if (window.location.hostname.endsWith("discordsays.com")) {
-  const CLIENT_ID = "1396595218211668049";
-  const discordSdk = new DiscordSDK(CLIENT_ID);
-  instanceId = discordSdk.instanceId;
-  console.log("[DiscordSDK] instanceId:", instanceId);
-} else {
-  instanceId = "local-instance";
-  console.log("[Local/Dev] instanceId:", instanceId);
-}
-socket.emit("join_instance", instanceId);
-
-// Debug Socket.IO events
-socket.on("connect", () => {
-  console.log('[DEBUG] Socket.IO connected:', socket.id);
-});
-socket.on("disconnect", () => {
-  console.log('[DEBUG] Socket.IO disconnected');
-});
-socket.on("lobby_state", state => {
-  console.log('[DEBUG] Received lobby_state:', state);
-  lobby = state;
-  if (lobby.started) {
-    startGameWithTeams();
-  } else {
-    renderLobby();
-  }
-});
-socket.on("game_started", () => {
-  console.log('[DEBUG] Received game_started');
-  startGameWithTeams();
-});
-
-const GOAL_SOUND = new Audio('/media/sound/goal.mp3'); // Use the correct file extension
+// --- Main Entry Point ---
+(async function main() {
+  await authenticateDiscordUser();
+  // Now you can safely use myUserId, myUsername, myAvatar
+  // The rest of your game logic, rendering, and controls remain unchanged
+})();
 
 const canvas = document.createElement('canvas');
 canvas.width = FIELD_WIDTH;
