@@ -15,7 +15,7 @@ if (window.location.hostname.endsWith("discordsays.com")) {
 }
 let socketOptions = {};
 if (window.location.hostname.endsWith("discordsays.com")) {
-  socketOptions.transports = ["polling"];
+  socketOptions.transports = ["websocket"];
 }
 const socket = io(socketUrl, socketOptions);
 
