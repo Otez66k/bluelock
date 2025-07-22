@@ -240,7 +240,7 @@ console.log('[DEBUG] DiscordSDK:', window.DiscordSDK);
 
 let instanceId;
 if (window.location.hostname.endsWith("discordsays.com")) {
-  const CLIENT_ID = window.CLIENT_ID || "<YOUR_DISCORD_CLIENT_ID>";
+  const CLIENT_ID = "1396595218211668049";
   const discordSdk = new DiscordSDK(CLIENT_ID);
   instanceId = discordSdk.instanceId;
   console.log("[DiscordSDK] instanceId:", instanceId);
