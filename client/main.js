@@ -323,6 +323,9 @@ function startGameWithTeams() {
   document.body.innerHTML = "";
   document.body.appendChild(canvas);
   
+  // Set up game controls now that canvas exists
+  setupGameControls();
+  
   // Initialize game state and start the game
   resetPositions();
   gameLoop();
@@ -405,23 +408,28 @@ let powerShot = { charging: false, power: 0, max: 32 };
 let passAim = { aiming: false, target: { x: 0, y: 0 } };
 let tackleAnim = { active: false, x: 0, y: 0, timer: 0 };
 
-// Controls
-window.addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  // Only Space triggers kick animation
-  if (e.code === 'Space') {
-    player.kicking = true;
-    player.kickTimer = 8; // frames
-  }
-});
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-// Remove canvas.addEventListener for mouse events, use window instead
-window.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
-  mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
-});
-window.addEventListener('mousedown', e => {
+// Function to set up game controls - called after canvas is created
+function setupGameControls() {
+  // Keyboard controls
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    // Only Space triggers kick animation
+    if (e.code === 'Space') {
+      player.kicking = true;
+      player.kickTimer = 8; // frames
+    }
+  });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  
+  // Mouse controls - now safe to access canvas
+  window.addEventListener('mousemove', e => {
+    if (!canvas) return; // Safety check
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+  });
+  
+  window.addEventListener('mousedown', e => {
   if (e.button === 0) { // left
     mouse.left = true;
     if (possession === player) {
@@ -474,8 +482,10 @@ window.addEventListener('mouseup', e => {
       passAim.aiming = false;
     }
   }
-});
-window.addEventListener('contextmenu', e => e.preventDefault());
+  });
+  
+  window.addEventListener('contextmenu', e => e.preventDefault());
+}
 
 function resetPositions() {
   player.x = FIELD_WIDTH * 0.25;
