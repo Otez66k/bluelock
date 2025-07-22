@@ -95,8 +95,21 @@ async function authenticateDiscordUser() {
   }
 }
 
-// Lobby state
-let lobby = null;
+// Lobby state management
+function getLobby() {
+  // Ensure lobby is always in a valid state
+  if (!lobby || typeof lobby !== 'object') {
+    lobby = {
+      teams: { left: [], right: [] },
+      started: false,
+      selectedTeams: { left: 0, right: 1 }
+    };
+  }
+  return lobby;
+}
+
+// Initialize lobby state
+let lobby = getLobby();
 let myTeam = null;
 let myCharacter = null;
 
@@ -109,17 +122,41 @@ let localState = {
 
 // --- State Sync Functions ---
 async function setLobbyState(newState) {
-  lobby = newState;
+  // Always ensure we have a valid lobby object
+  lobby = {
+    teams: newState.teams || { left: [], right: [] },
+    started: !!newState.started,
+    selectedTeams: newState.selectedTeams || { left: 0, right: 1 }
+  };
+  
   if (isDiscord) {
-    await discordSdk.commands.setActivityInstanceState(lobby);
+    try {
+      await discordSdk.commands.setActivityInstanceState(lobby);
+    } catch (error) {
+      console.error('Error updating Discord activity state:', error);
+    }
   } else {
-    localState = { ...newState };
+    localState = { ...lobby }; // Use the sanitized lobby
     onLobbyState(localState);
   }
 }
 
 function onLobbyState(state) {
-  lobby = state;
+  // Ensure we have a valid state before updating
+  if (!state || typeof state !== 'object') {
+    console.error('Invalid lobby state received:', state);
+    state = { teams: { left: [], right: [] }, started: false, selectedTeams: { left: 0, right: 1 } };
+  }
+  
+  // Update lobby with sanitized state
+  lobby = {
+    teams: state.teams || { left: [], right: [] },
+    started: !!state.started,
+    selectedTeams: state.selectedTeams || { left: 0, right: 1 }
+  };
+  
+  console.log('Lobby state updated:', lobby);
+  
   if (lobby.started) {
     startGameWithTeams();
   } else {
@@ -189,6 +226,10 @@ selectedTeams = { left: TEAM_LIST[0], right: TEAM_LIST[1] };
 let teamIdx = { left: 0, right: 1 };
 
 function renderLobby() {
+  // Ensure we have a valid lobby
+  const lobby = getLobby();
+  console.log('Rendering lobby with state:', lobby);
+  
   document.body.innerHTML = `
     <div class="lobby-container">
       <div class="lobby-header">JOIN A TEAM</div>
