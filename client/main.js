@@ -13,7 +13,11 @@ if (window.location.hostname.endsWith("discordsays.com")) {
   socketUrl = undefined;
   console.log("[Socket.IO] Using default (same-origin) connection");
 }
-const socket = io(socketUrl);
+let socketOptions = {};
+if (window.location.hostname.endsWith("discordsays.com")) {
+  socketOptions.transports = ["polling"];
+}
+const socket = io(socketUrl, socketOptions);
 
 // Game constants
 const GOAL_SCORE = 5;
