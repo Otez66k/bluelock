@@ -55,8 +55,8 @@ const CHARACTER_AVATARS = {
 const isDiscord = window.location.hostname.endsWith("discordsays.com");
 const CLIENT_ID = "1396595218211668049";
 const discordSdk = new DiscordSDK(CLIENT_ID);
-let instanceId = isDiscord ? discordSdk.instanceId : "local-instance";
-console.log("[DiscordSDK] instanceId:", instanceId);
+let instanceId = "local-instance"; // Will be set after Discord SDK is ready
+console.log("[DEBUG] isDiscord:", isDiscord);
 
 let myUserId = null;
 let myUsername = null;
@@ -65,6 +65,11 @@ let myAvatar = null;
 async function authenticateDiscordUser() {
   if (isDiscord) {
     await discordSdk.ready();
+    
+    // Now that SDK is ready, we can safely access instanceId
+    instanceId = discordSdk.instanceId;
+    console.log("[DiscordSDK] instanceId:", instanceId);
+    
     // Use OAuth2 implicit grant or other method to get access token if needed
     // For demo, try to authenticate anonymously
     try {
@@ -307,8 +312,20 @@ function fancyCharSelect(character, isMe) {
 }
 
 function startGameWithTeams() {
+  // Create and setup canvas
+  canvas = document.createElement('canvas');
+  canvas.width = FIELD_WIDTH;
+  canvas.height = FIELD_HEIGHT;
+  canvas.style.background = COLORS.field;
+  ctx = canvas.getContext('2d');
+  
+  // Clear the lobby and show the game
   document.body.innerHTML = "";
   document.body.appendChild(canvas);
+  
+  // Initialize game state and start the game
+  resetPositions();
+  gameLoop();
 }
 
 function startLobbyFlow() {
@@ -325,18 +342,23 @@ console.log('[DEBUG] DiscordSDK:', window.DiscordSDK);
 
 // --- Main Entry Point ---
 (async function main() {
+  console.log('[DEBUG] Starting main function');
+  console.log('[DEBUG] Environment check - isDiscord:', isDiscord);
+  
   await authenticateDiscordUser();
+  console.log('[DEBUG] Authentication complete. User:', myUsername, 'ID:', myUserId);
+  
   // Now you can safely use myUserId, myUsername, myAvatar
-  // The rest of your game logic, rendering, and controls remain unchanged
+  
+  // Start with the lobby instead of immediately starting the game
+  console.log('[DEBUG] Rendering lobby...');
+  renderLobby();
+  console.log('[DEBUG] Lobby rendered');
 })();
 
-const canvas = document.createElement('canvas');
-canvas.width = FIELD_WIDTH;
-canvas.height = FIELD_HEIGHT;
-canvas.style.background = COLORS.field;
-document.body.innerHTML = '';
-document.body.appendChild(canvas);
-const ctx = canvas.getContext('2d');
+// Canvas and context - will be created when game starts
+let canvas;
+let ctx;
 
 // Game State
 let player = {
@@ -976,5 +998,4 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
-resetPositions();
-gameLoop();
+// Game will start when startGameWithTeams() is called from the lobby
